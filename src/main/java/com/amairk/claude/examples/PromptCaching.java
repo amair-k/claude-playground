@@ -4,7 +4,7 @@ import com.amairk.claude.Config;
 import com.amairk.claude.Printer;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.models.messages.CacheControlEphemeral;
-import com.anthropic.models.messages.Message;
+import com.anthropic.models.messages.MessageCountTokensParams;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.TextBlockParam;
 
@@ -28,11 +28,12 @@ public class PromptCaching implements Example {
     public void run(AnthropicClient client) {
         Printer.title("Prompt caching", "Reuse the processed prefix: cache write once, cheap reads after");
 
-        long handbookTokens = client.messages().countTokens(com.anthropic.models.messages.MessageCountTokensParams.builder()
+        Printer.step("Size of the handbook (count_tokens)");
+        long handbookTokens = Call.countTokens(client, MessageCountTokensParams.builder()
                 .model(Config.MODEL)
                 .system(HANDBOOK)
                 .addUserMessage("x")
-                .build()).inputTokens();
+                .build());
         Printer.sent("system (cached block)", "Engineering handbook, ~" + handbookTokens + " tokens\n"
                 + "cache_control: {type: ephemeral}  (5-minute TTL)");
 
@@ -43,8 +44,7 @@ public class PromptCaching implements Example {
 
         for (int i = 0; i < questions.length; i++) {
             Printer.step("Call " + (i + 1) + (i == 0 ? ": expect a cache WRITE" : ": same prefix, expect a cache READ"));
-            Printer.sent("user (not cached, changes every call)", questions[i]);
-            Message response = client.messages().create(MessageCreateParams.builder()
+            Call.create(client, MessageCreateParams.builder()
                     .model(Config.MODEL)
                     .maxTokens(Config.MAX_TOKENS)
                     .systemOfTextBlockParams(List.of(TextBlockParam.builder()
@@ -53,12 +53,11 @@ public class PromptCaching implements Example {
                             .build()))
                     .addUserMessage(questions[i])
                     .build());
-            Printer.response(response);
         }
 
         Printer.note("""
                 Call 1: cache_creation_input_tokens ~ handbook size (billed ~1.25x).
-                Call 2: cache_read_input_tokens ~ handbook size (billed ~0.1x); input_tokens is only the question.
+                Call 2: cache_read_input_tokens ~ handbook size (billed a small fraction of input: 0.05x on Opus 5.5); input_tokens is only the question.
                 If both show 0: the prefix is below the model's minimum, or something in it changed.
                 Run the example again within 5 minutes and even call 1 becomes a cache read.""");
     }

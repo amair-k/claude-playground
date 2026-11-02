@@ -1,8 +1,15 @@
 package com.amairk.claude;
 
+import com.anthropic.core.ObjectMappers;
 import com.anthropic.models.messages.ContentBlock;
 import com.anthropic.models.messages.Message;
+import com.anthropic.models.messages.StopReason;
 import com.anthropic.models.messages.Usage;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 
 /** Pretty console output so each request/response is easy to read. */
 public final class Printer {
@@ -42,6 +49,46 @@ public final class Printer {
         System.out.println(MAGENTA + "└" + RESET);
     }
 
+    /**
+     * Pretty-prints an SDK object as the JSON that goes over the wire (request body or response).
+     * Thinking signatures, and long strings in requests (e.g. a big system prompt), are shortened
+     * so the structure stays readable; response text is never shortened.
+     */
+    public static void json(String label, Object value, boolean outgoing) {
+        String color = outgoing ? MAGENTA : GREEN;
+        String json;
+        try {
+            JsonNode tree = ObjectMappers.jsonMapper().valueToTree(value);
+            shorten(tree, outgoing);
+            json = ObjectMappers.jsonMapper().writerWithDefaultPrettyPrinter().writeValueAsString(tree);
+        } catch (JsonProcessingException | IllegalArgumentException e) {
+            json = String.valueOf(value);
+        }
+        System.out.println(color + "┌─ " + label + " " + RESET);
+        json.lines().forEach(l -> System.out.println(color + "│ " + RESET + l));
+        System.out.println(color + "└" + RESET);
+    }
+
+    private static void shorten(JsonNode node, boolean outgoing) {
+        if (node instanceof ArrayNode array) {
+            array.forEach(child -> shorten(child, outgoing));
+        } else if (node instanceof ObjectNode object) {
+            object.properties().forEach(field -> {
+                JsonNode child = field.getValue();
+                if (child.isTextual()) {
+                    int keep = field.getKey().equals("signature") ? 20 : outgoing ? 300 : Integer.MAX_VALUE;
+                    String text = child.asText();
+                    if (text.length() - 50 > keep) {
+                        field.setValue(TextNode.valueOf(
+                                text.substring(0, keep) + "… [+" + (text.length() - keep) + " chars]"));
+                    }
+                } else {
+                    shorten(child, outgoing);
+                }
+            });
+        }
+    }
+
     /** Explanatory note printed in dim text. */
     public static void note(String text) {
         text.lines().forEach(l -> System.out.println(DIM + "  ℹ " + l + RESET));
@@ -53,7 +100,7 @@ public final class Printer {
 
     /** Prints every content block, the stop reason, and token usage of a response. */
     public static void response(Message message) {
-        System.out.println(GREEN + "┌─ response (" + message.model().asString() + ")" + RESET);
+        System.out.println(GREEN + "┌─ content, rendered (" + message.model().asString() + ")" + RESET);
         for (ContentBlock block : message.content()) {
             block.thinking().ifPresent(t -> {
                 String text = t.thinking().isBlank() ? "(thinking happened; text omitted by default)" : t.thinking();
@@ -71,7 +118,16 @@ public final class Printer {
         String reason = message.stopReason().map(r -> r.asString()).orElse("?");
         String extra = message.stopSequence().map(s -> "  (matched: \"" + s + "\")").orElse("");
         System.out.println("  " + BOLD + "stop_reason: " + RESET + reason + extra);
-        message.stopDetails().ifPresent(d -> System.out.println("  " + RED + "refusal details: " + d + RESET));
+        if (message.stopReason().filter(StopReason.REFUSAL::equals).isPresent()) {
+            String category = message.stopDetails().flatMap(d -> d.category()).map(c -> c.asString()).orElse("unknown");
+            String why = message.stopDetails().flatMap(d -> d.explanation()).orElse("");
+            System.out.println("  " + RED + BOLD + "REFUSED by a safety classifier (category: " + category + ")" + RESET);
+            System.out.println("  " + RED + "HTTP status was still 200, content is empty, input tokens are still billed." + RESET);
+            System.out.println("  " + RED + "Always check stop_reason before reading content." + RESET);
+            if (!why.isBlank()) {
+                System.out.println("  " + DIM + why + RESET);
+            }
+        }
     }
 
     public static void usage(Usage u) {

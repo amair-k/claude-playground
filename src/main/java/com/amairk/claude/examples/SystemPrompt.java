@@ -32,22 +32,19 @@ public class SystemPrompt implements Example {
         String user = "Review this method:\n\n" + CODE;
 
         Printer.step("Run 1: no system prompt");
-        Printer.sent("user", user);
-        Printer.response(client.messages().create(MessageCreateParams.builder()
+        Call.create(client, MessageCreateParams.builder()
                 .model(Config.MODEL)
                 .maxTokens(Config.MAX_TOKENS)
                 .addUserMessage(user)
-                .build()));
+                .build());
 
-        Printer.step("Run 2: with a system prompt");
-        Printer.sent("system", SYSTEM);
-        Printer.sent("user", user);
-        Printer.response(client.messages().create(MessageCreateParams.builder()
+        Printer.step("Run 2: with a system prompt (see the top-level \"system\" field)");
+        Call.create(client, MessageCreateParams.builder()
                 .model(Config.MODEL)
                 .maxTokens(Config.MAX_TOKENS)
                 .system(SYSTEM)
                 .addUserMessage(user)
-                .build()));
+                .build());
 
         Printer.note("Same question; the system prompt changes role, length and format of the answer.");
     }

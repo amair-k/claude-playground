@@ -7,6 +7,8 @@ import com.amairk.claude.examples.FewShot;
 import com.amairk.claude.examples.GenerationParams;
 import com.amairk.claude.examples.MultiTurn;
 import com.amairk.claude.examples.PromptCaching;
+import com.amairk.claude.examples.Streaming;
+import com.amairk.claude.examples.StructuredOutput;
 import com.amairk.claude.examples.SystemPrompt;
 import com.amairk.claude.examples.TokenCounting;
 import com.amairk.claude.examples.XmlTags;
@@ -38,6 +40,8 @@ public class App {
         EXAMPLES.put("params", new GenerationParams());
         EXAMPLES.put("tokens", new TokenCounting());
         EXAMPLES.put("caching", new PromptCaching());
+        EXAMPLES.put("structured", new StructuredOutput());
+        EXAMPLES.put("streaming", new Streaming());
     }
 
     public static void main(String[] args) {

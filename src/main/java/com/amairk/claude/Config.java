@@ -23,7 +23,12 @@ public final class Config {
             throw new IllegalStateException(
                     "ANTHROPIC_API_KEY is not set. Copy .env.example to .env and put your key there.");
         }
-        return AnthropicOkHttpClient.builder().apiKey(apiKey).build();
+        AnthropicOkHttpClient.Builder builder = AnthropicOkHttpClient.builder().apiKey(apiKey);
+        String baseUrl = get("ANTHROPIC_BASE_URL", null); // e.g. a company LLM gateway; unset = api.anthropic.com
+        if (baseUrl != null) {
+            builder.baseUrl(baseUrl);
+        }
+        return builder.build();
     }
 
     private static String get(String name, String fallback) {

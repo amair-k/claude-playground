@@ -45,20 +45,18 @@ public class FewShot implements Example {
         Printer.title("Few-shot prompting", "Show input -> output pairs; the model copies the pattern");
 
         Printer.step("Zero-shot: instruction only");
-        Printer.sent("user", ZERO_SHOT);
-        Printer.response(ask(client, ZERO_SHOT));
+        ask(client, ZERO_SHOT);
 
         Printer.step("Few-shot: 3 examples wrapped in <example> tags");
-        Printer.sent("user", FEW_SHOT);
-        Printer.response(ask(client, FEW_SHOT));
+        ask(client, FEW_SHOT);
 
         Printer.note("""
                 Zero-shot gives free-form prose. Few-shot returns the exact JSON shape and labels shown.
                 Few-shot costs more input tokens on every call (examples are resent each time).""");
     }
 
-    private static com.anthropic.models.messages.Message ask(AnthropicClient client, String prompt) {
-        return client.messages().create(MessageCreateParams.builder()
+    private static void ask(AnthropicClient client, String prompt) {
+        Call.create(client, MessageCreateParams.builder()
                 .model(Config.MODEL)
                 .maxTokens(Config.MAX_TOKENS)
                 .addUserMessage(prompt)

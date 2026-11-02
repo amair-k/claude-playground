@@ -37,13 +37,11 @@ public class XmlTags implements Example {
     public void run(AnthropicClient client) {
         Printer.title("XML tags", "Clear section boundaries in, a parseable <answer> out");
 
-        Printer.sent("user", PROMPT);
-        Message response = client.messages().create(MessageCreateParams.builder()
+        Message response = Call.create(client, MessageCreateParams.builder()
                 .model(Config.MODEL)
                 .maxTokens(Config.MAX_TOKENS)
                 .addUserMessage(PROMPT)
                 .build());
-        Printer.response(response);
 
         Printer.step("What our code extracts with a regex on <answer>...</answer>");
         String text = BasicText.of(response);
